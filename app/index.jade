@@ -1,0 +1,34 @@
+doctype html
+html(ng-app)
+    head
+        //- Meta
+        title=document.title
+        meta(charset='utf-8')
+        - var minimalUiMeta = document.iosMinimalUi?', minimal-ui':''
+        meta(name='viewport', content='width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no' + minimalUiMeta)
+        base(href=document.baseHref)
+
+        //- Styles
+        link(href='styles/screen.css', media='screen, projection', rel='stylesheet', type='text/css')
+        link(href='styles/print.css', media='print', rel='stylesheet', type='text/css')
+
+        //- Bower components
+        - each path in dependencies.bower
+            - if (dependencies.legacy.indexOf(path) == -1)
+                script(src=path, type='text/javascript')
+
+        //- Bower components (legacy)
+        | <!--[if lt IE 9]>
+        - each path in dependencies.bower
+            - if (dependencies.legacy.indexOf(path) != -1)
+                script(src=path, type='text/javascript')
+        | <![endif]-->
+
+    body
+        //- Body
+        include templates/body
+        p test
+
+        //- Scripts
+        - each path in dependencies.scripts
+            script(src=path, type='text/javascript')
