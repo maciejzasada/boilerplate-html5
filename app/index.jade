@@ -1,5 +1,5 @@
 doctype html
-html(ng-app)
+html
     head
         //- Meta
         title=document.title
@@ -16,18 +16,15 @@ html(ng-app)
         - each path in dependencies.bower
             - if (dependencies.legacy.indexOf(path) == -1)
                 script(src=path, type='text/javascript')
-
-        //- Bower components (legacy)
         | <!--[if lt IE 9]>
         - each path in dependencies.bower
             - if (dependencies.legacy.indexOf(path) != -1)
                 script(src=path, type='text/javascript')
         | <![endif]-->
 
-    body
+    body(ng-app='boilerplate-html5')
         //- Body
         include templates/body
-        p test
 
         //- Scripts
         - each path in dependencies.scripts

@@ -5,6 +5,7 @@
 // Imports.
 var gulp = require('gulp'),
     gutil = require('gulp-util'),
+    fs = require('fs'),
     path = require('path'),
     extend = require('extend'),
     gulpLoadPlugins = require('gulp-load-plugins'),
@@ -58,7 +59,7 @@ gulp.task('scss-lint', function () {
 
 // Jade.
 var getJadeData = function (env, cb) {
-    var data = require(config.dev.paths.root + '/jade-data/default.json'),
+    var data = JSON.parse(fs.readFileSync(config.dev.paths.root + '/jade-data/default.json')),
         bowerFiles = [],
         scripts = [],
         toDo = 2,
@@ -68,7 +69,7 @@ var getJadeData = function (env, cb) {
         };
 
     // Prepare data as the defaults extended with dev.
-    extend(true, data, require(config.dev.paths.root + '/jade-data/' + env + '.json'));
+    extend(true, data, JSON.parse(fs.readFileSync(config.dev.paths.root + '/jade-data/' + env + '.json')));
 
     // Read dependencies.
     plugins.bowerFiles()
@@ -107,7 +108,8 @@ gulp.task('jade-dev', ['jade-data-dev'], function () {
             pretty: true,
             data: jadeData
         }))
-        .pipe(gulp.dest(config.dev.paths.tmp));
+        .pipe(gulp.dest(config.dev.paths.tmp))
+        .pipe(plugins.connect.reload());
 });
 
 gulp.task('jade-prod', ['jade-data-prod'], function () {
@@ -124,7 +126,7 @@ gulp.task('coffee', function () {
     return gulp.src(config.dev.paths.root + '/scripts/**/*.coffee')
         .pipe(plugins.sourcemaps.init())
         .pipe(plugins.coffee())
-        .pipe(plugins.sourcemaps.write())
+        .pipe(plugins.sourcemaps.write({sourceRoot: '/scripts'}))
         .pipe(gulp.dest(config.dev.paths.tmp + '/scripts'));
 });
 
@@ -184,9 +186,13 @@ gulp.task('open-prod', function () {
 
 // Watch.
 gulp.task('watch', function () {
+    // Scss.
     gulp.src(config.dev.paths.root + '/styles/**/*.scss', {read: false})
         .pipe(plugins.watch())
         .pipe(plugins.plumber())
+        .pipe(plugins.scsslint({
+            config: 'scss-lint.yml'
+        }))
         .pipe(plugins.compass({
             config_file: 'config.rb',
             css: config.dev.paths.tmp + '/styles',
@@ -194,18 +200,37 @@ gulp.task('watch', function () {
         }))
         .pipe(plugins.connect.reload());
 
+    // Coffee.
     gulp.src(config.dev.paths.root + '/scripts/**/*.coffee', {read: false})
         .pipe(plugins.watch())
         .pipe(plugins.plumber())
+        .pipe(plugins.coffeelint({
+            optFile: 'coffeelint.json'
+        }))
+        .pipe(plugins.coffeelint.reporter())
+        .pipe(plugins.sourcemaps.init())
         .pipe(plugins.coffee())
-        .pipe(plugins.sourcemaps.write())
+        .pipe(plugins.sourcemaps.write({sourceRoot: config.dev.paths.root + '/scripts'}))
         .pipe(gulp.dest(config.dev.paths.tmp + '/scripts'))
         .pipe(plugins.connect.reload());
 
-//    gulp.src(config.dev.paths.root + '/**/*.jade', {read: false})
-//        .pipe(plugins.watch())
-//        .pipe(plugins.plumber())
-//        .pipe(gulp.run('jade-dev'));
+    // Jade.
+    gulp.src(config.dev.paths.root + '/**/*.jade', {read: false})
+        .pipe(plugins.watch(function(files) {
+            return gulp.src([config.dev.paths.root + '/**/*.jade', '!' + config.dev.paths.root + '/templates/**/*'])
+                .pipe(plugins.jade({
+                    pretty: true,
+                    data: jadeData
+                }))
+                .pipe(gulp.dest(config.dev.paths.tmp))
+                .pipe(plugins.connect.reload());
+        }));
+
+    // Jade-data.
+    gulp.src(config.dev.paths.root + '/jade-data/**/*.json', {read: false})
+        .pipe(plugins.watch({}, function (files) {
+            return gulp.run('jade-dev');
+        }));
 });
 
 // Bump.
