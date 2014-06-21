@@ -13,6 +13,6 @@ module.config ($stateProvider, $urlRouterProvider) ->
   $stateProvider
     .state 'home', {
       url: '/'
-#      controller: 'HomeCtrl'
+      controller: 'HomeCtrl'
       templateUrl: 'partials/home.html'
     }
