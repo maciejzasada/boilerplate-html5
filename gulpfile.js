@@ -9,13 +9,13 @@ var gulp = require('gulp'),
     path = require('path'),
     extend = require('extend'),
     gulpLoadPlugins = require('gulp-load-plugins'),
-    plugins = gulpLoadPlugins({
+    $ = gulpLoadPlugins({
         lazy: true
     }),
-    scsslint = require('gulp-scss-lint'),// For some reason doesn't work with gulp-load-plugins.
+    scsslint = require('gulp-scss-lint'),// For some reason doesn't work with gulp-load-$.
     config,
     jadeData;
-plugins.scsslint = scsslint;
+$.scsslint = scsslint;
 
 // Config.
 config = {
@@ -37,23 +37,92 @@ config = {
 // Clean.
 gulp.task('clean', function () {
     return gulp.src([config.dev.paths.tmp + '/**/*', config.prod.paths.root + '/**/*'], {read: false})
-        .pipe(plugins.clean());
+        .pipe($.clean());
 });
 
-// Coffeelint.
-gulp.task('coffeelint', function () {
-    return gulp.src('./' + config.dev.paths.root + '/scripts/**/*.coffee')
-        .pipe(plugins.coffeelint({
+// Bump.
+gulp.task('bump-prod', function () {
+    return gulp.src(['package.json', './bower.json'])
+        .pipe($.bump({type: 'build'}))
+        .pipe(gulp.dest('./'));
+});
+
+gulp.task('bump-minor', function () {
+    return gulp.src(['package.json', './bower.json'])
+        .pipe($.bump({type: 'minor'}))
+        .pipe(gulp.dest('./'));
+});
+
+//////////////////////////////////////// NEW
+
+// Scripts.
+gulp.task('scripts-dev', function () {
+    return gulp.src(config.dev.paths.root + '/scripts/**/*.coffee')
+        .pipe($.coffeelint({
             optFile: 'coffeelint.json'
         }))
-        .pipe(plugins.coffeelint.reporter());
+        .pipe($.coffeelint.reporter())
+        .pipe($.sourcemaps.init())
+        .pipe($.coffee())
+        .pipe($.sourcemaps.write({sourceRoot: '/scripts'}))
+        .pipe(gulp.dest(config.dev.paths.tmp + '/scripts'));
 });
 
-// SCSSlint.
-gulp.task('scss-lint', function () {
+gulp.task('scripts-prod', function () {
+    return gulp.src(config.dev.paths.root + '/scripts/**/*.coffee')
+        .pipe($.coffeelint({
+            optFile: 'coffeelint.json'
+        }))
+        .pipe($.coffeelint.reporter())
+        .pipe($.coffee())
+        .pipe($.concat('main.js'))
+        .pipe($.ngmin({dynamic: false}))
+        .pipe($.uglify())
+        .pipe(gulp.dest(config.prod.paths.root + '/scripts'));
+});
+
+// Styles.
+var scssReporter = function (file) {
+    if (file.scsslint.success) {
+        gutil.log(gutil.colors.cyan('scss-lint:'), '[' + gutil.colors.green('clean') + ']', '[' + path.relative('./app/styles', file.path) + ']');
+    } else {
+        for (var i = 0; i < file.scsslint.issues.length; ++i) {
+            var issue = file.scsslint.issues[i],
+                color = issue.severity === 'error' ? gutil.colors.red : gutil.colors.yellow;
+            gutil.log(gutil.colors.cyan('scss-lint:'), '[' + color(issue.severity) + ']', '[' + path.relative('./app/styles', file.path) + gutil.colors.grey(':' + issue.line + '::' + issue.column) + ']', color(issue.reason));
+            gulp.src(file.path, {read: false})
+                .pipe($.notify({
+                    title: issue.severity.toUpperCase() + ': Compass',
+                    message: path.relative('./app/styles', file.path)
+                }));
+        }
+    }
+};
+
+gulp.task('styles-dev', function () {
     return gulp.src(config.dev.paths.root + '/styles/**/*.scss')
-        .pipe(plugins.scsslint({
+        .pipe($.scsslint({
+            config: 'scss-lint.yml',
+            customReport: scssReporter
+        }))
+        .pipe($.scsslint.failReporter())
+        .pipe($.compass({
+            config_file: 'config-dev.rb',
+            css: config.dev.paths.tmp + '/styles',
+            sass: config.dev.paths.root + '/styles'
+//            sourcemap: true   // Compass doesn't support source maps yet.
+        }));
+});
+
+gulp.task('styles-prod', function () {
+    return gulp.src(config.dev.paths.root + '/styles/**/*.scss')
+        .pipe($.scsslint({
             config: 'scss-lint.yml'
+        }))
+        .pipe($.compass({
+            config_file: 'config-prod.rb',
+            css: config.prod.paths.root + '/styles',
+            sass: config.dev.paths.root + '/styles'
         }));
 });
 
@@ -72,7 +141,7 @@ var getJadeData = function (env, cb) {
     extend(true, data, JSON.parse(fs.readFileSync(config.dev.paths.root + '/jade-data/' + env + '.json')));
 
     // Read dependencies.
-    plugins.bowerFiles()
+    $.bowerFiles()
         .pipe(gutil.buffer(function (err, files) {
             bowerFiles = files.map(function (file) {
                 return path.relative(config.dev.paths.root, file.path)
@@ -81,8 +150,10 @@ var getJadeData = function (env, cb) {
             if (--toDo === 0) {
                 done();
             }
-        }))
-        .pipe(gulp.src(config.dev.paths.tmp + '/scripts/**/*.js'))
+        }));
+
+    // Read scripts.
+    gulp.src(config.dev.paths.tmp + '/scripts/**/*.js')
         .pipe(gutil.buffer(function (err, files) {
             scripts = files.map(function (file) {
                 return path.relative(config.dev.paths.tmp, file.path)
@@ -104,59 +175,26 @@ gulp.task('jade-data-prod', function (cb) {
 
 gulp.task('jade-dev', ['jade-data-dev'], function () {
     return gulp.src([config.dev.paths.root + '/**/*.jade', '!' + config.dev.paths.root + '/templates/**/*'])
-        .pipe(plugins.jade({
+        .pipe($.jade({
             pretty: true,
             data: jadeData
         }))
         .pipe(gulp.dest(config.dev.paths.tmp))
-        .pipe(plugins.connect.reload());
+        .pipe($.connect.reload());
 });
 
 gulp.task('jade-prod', ['jade-data-prod'], function () {
-    return gulp.src(config.dev.paths.root + '/**/*.jade')
-        .pipe(plugins.jade({
+    return gulp.src([config.dev.paths.root + '/**/*.jade', '!' + config.dev.paths.root + '/templates/**/*'])
+        .pipe($.jade({
             pretty: false,
             data: jadeData
         }))
-        .pipe(gulp.dest(config.dev.paths.tmp));
-});
-
-// Coffee.
-gulp.task('coffee', function () {
-    return gulp.src(config.dev.paths.root + '/scripts/**/*.coffee')
-        .pipe(plugins.sourcemaps.init())
-        .pipe(plugins.coffee())
-        .pipe(plugins.sourcemaps.write({sourceRoot: '/scripts'}))
-        .pipe(gulp.dest(config.dev.paths.tmp + '/scripts'));
-});
-
-// Compass.
-gulp.task('compass', function () {
-    return gulp.src(config.dev.paths.root + '/styles/**/*.scss')
-        .pipe(plugins.compass({
-            config_file: 'config.rb',
-            css: config.dev.paths.tmp + '/styles',
-            sass: config.dev.paths.root + '/styles'
-        }))
-        .pipe(gulp.dest(config.dev.paths.tmp + '/styles'));
-});
-
-// Copy.
-gulp.task('copy', function () {
-    return gulp.src(config.dev.paths.tmp + '/styles/**/*')
-        .pipe(gulp.dest(config.prod.paths.root + '/styles'));
-});
-
-// Ng-min.
-gulp.task('ng-min', function () {
-    return gulp.src(config.dev.paths.tmp + '/scripts/app.js')
-        .pipe(plugins.ngmin({dynamic: true}))
-        .pipe(gulp.dest(config.prod.paths.root + '/scripts'));
+        .pipe(gulp.dest(config.prod.paths.root));
 });
 
 // Connect.
 gulp.task('connect-dev', function () {
-    return plugins.connect.server({
+    return $.connect.server({
         root: [config.dev.paths.root, config.dev.paths.tmp],
         port: config.dev.port,
         host: '0.0.0.0',
@@ -165,7 +203,7 @@ gulp.task('connect-dev', function () {
 });
 
 gulp.task('connect-prod', function () {
-    return plugins.connect.server({
+    return $.connect.server({
         root: config.prod.paths.root,
         port: config.prod.port,
         host: '0.0.0.0',
@@ -173,96 +211,99 @@ gulp.task('connect-prod', function () {
     });
 });
 
-// Open.
-gulp.task('open-dev', function () {
-    return gulp.src('./gulpfile.js')
-        .pipe(plugins.open('', {url: 'http://localhost:' + config.dev.port}));
-});
-
-gulp.task('open-prod', function () {
-    return gulp.src('./gulpfile.js')
-        .pipe(plugins.open('', {url: 'http://localhost:' + config.prod.port}));
-});
-
 // Watch.
 gulp.task('watch', function () {
     // Scss.
+    gulp.watch(config.dev.paths.root + '/styles/**/*.scss', function (file) {
+        console.log('******* FILE', file);
+        return gulp.src(file.path)
+            .pipe($.scsslint({
+                config: 'scss-lint.yml',
+                customReport: scssReporter
+            }));
+    });
+
     gulp.src(config.dev.paths.root + '/styles/**/*.scss', {read: false})
-        .pipe(plugins.watch())
-        .pipe(plugins.plumber())
-        .pipe(plugins.scsslint({
-            config: 'scss-lint.yml'
-        }))
-        .pipe(plugins.compass({
-            config_file: 'config.rb',
+        .pipe($.watch())
+        .pipe($.plumber())
+        .pipe($.compass({
+            config_file: 'config-dev.rb',
             css: config.dev.paths.tmp + '/styles',
             sass: config.dev.paths.root + '/styles'
         }))
-        .pipe(plugins.connect.reload());
+        .pipe($.connect.reload())
+        .pipe($.notify({
+            title: 'Compass',
+            message: 'Styles re-built'
+        }));
 
     // Coffee.
     gulp.src(config.dev.paths.root + '/scripts/**/*.coffee', {read: false})
-        .pipe(plugins.watch())
-        .pipe(plugins.plumber())
-        .pipe(plugins.coffeelint({
+        .pipe($.watch())
+        .pipe($.plumber())
+        .pipe($.coffeelint({
             optFile: 'coffeelint.json'
         }))
-        .pipe(plugins.coffeelint.reporter())
-        .pipe(plugins.sourcemaps.init())
-        .pipe(plugins.coffee())
-        .pipe(plugins.sourcemaps.write({sourceRoot: config.dev.paths.root + '/scripts'}))
+        .pipe($.coffeelint.reporter())
+        .pipe($.sourcemaps.init())
+        .pipe($.coffee())
+        .pipe($.sourcemaps.write({sourceRoot: config.dev.paths.root + '/scripts'}))
         .pipe(gulp.dest(config.dev.paths.tmp + '/scripts'))
-        .pipe(plugins.connect.reload());
+        .pipe($.connect.reload())
+        .pipe($.notify({
+            title: 'Coffee',
+            message: 'Scripts re-built'
+        }));
 
     // Jade.
     gulp.src(config.dev.paths.root + '/**/*.jade', {read: false})
-        .pipe(plugins.watch(function(files) {
+        .pipe($.watch(function() {
             return gulp.src([config.dev.paths.root + '/**/*.jade', '!' + config.dev.paths.root + '/templates/**/*'])
-                .pipe(plugins.jade({
+                .pipe($.jade({
                     pretty: true,
                     data: jadeData
                 }))
                 .pipe(gulp.dest(config.dev.paths.tmp))
-                .pipe(plugins.connect.reload());
+                .pipe($.connect.reload())
+                .pipe($.notify({
+                    title: 'Jade',
+                    message: 'Templates re-built'
+                }));
         }));
 
     // Jade-data.
     gulp.src(config.dev.paths.root + '/jade-data/**/*.json', {read: false})
-        .pipe(plugins.watch({}, function (files) {
+        .pipe($.watch({}, function (files) {
             return gulp.run('jade-dev');
+        }))
+        .pipe($.notify({
+            title: 'Jade',
+            message: 'Templates re-built'
         }));
 });
 
-// Bump.
-gulp.task('bump-prod', function () {
-    return gulp.src(['package.json', './bower.json'])
-        .pipe(plugins.bump({type: 'build'}))
-        .pipe(gulp.dest('./'));
+// Open.
+gulp.task('open-dev', function () {
+    return gulp.src('./gulpfile.js')
+        .pipe($.open('', {url: 'http://localhost:' + config.dev.port}));
 });
 
-gulp.task('bump-minor', function () {
-    return gulp.src(['package.json', './bower.json'])
-        .pipe(plugins.bump({type: 'minor'}))
-        .pipe(gulp.dest('./'));
+gulp.task('open-prod', function () {
+    return gulp.src('./gulpfile.js')
+        .pipe($.open('', {url: 'http://localhost:' + config.prod.port}));
 });
 
 // Proxies.
 gulp.task('dev', function (cb) {
-    plugins.runSequence(
-        'clean',
-        ['coffeelint', 'scss-lint', 'coffee', 'compass', 'connect-dev'],
-        'jade-dev',
-        ['open-dev', 'watch'],
-        cb
-    );
+    $.runSequence('clean', ['scripts-dev', 'styles-dev', 'connect-dev'], 'jade-dev', ['open-dev', 'watch'], cb);
 });
 
 gulp.task('prod', function (cb) {
-    plugins.runSequence(
+    $.runSequence(
         'clean',
         ['coffeelint', 'scss-lint', 'coffee', 'compass', 'connect-prod'],
-        'jade-prod',
-        ['copy', 'ng-min'],
+        ['jade-prod', 'copy', 'concat'],
+        'ng-min',
         ['open-prod'],
         cb
     );

@@ -1,0 +1,8 @@
+preferred_syntax = :scss
+http_path = '/'
+css_dir = '.tmp/styles'
+sass_dir = 'app/styles'
+images_dir = 'app/images'
+javascripts_dir = 'app/scripts'
+relative_assets = true
+line_comments = true

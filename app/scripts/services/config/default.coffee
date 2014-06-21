@@ -1,7 +1,6 @@
 angular.module('boilerplate-html5')
-.service 'ConfigDefault', [() ->
+.service 'ConfigDefault', () ->
   # Environment.
   @env = undefined
 
   @
-]
