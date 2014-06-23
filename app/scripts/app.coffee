@@ -20,4 +20,4 @@ module.run (Config, GoogleAnalytics) ->
   Config.init()
   GoogleAnalytics.init()
   GoogleAnalytics.trackPageview()
-  window.generateError()
+#  window.generateError()

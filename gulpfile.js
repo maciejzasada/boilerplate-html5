@@ -5,6 +5,7 @@
 // Imports.
 var gulp = require('gulp'),
     gutil = require('gulp-util'),
+    browserSync = require('browser-sync'),
     fs = require('fs'),
     path = require('path'),
     extend = require('extend'),
@@ -12,17 +13,20 @@ var gulp = require('gulp'),
     $ = gulpLoadPlugins({
         lazy: true
     }),
-    scsslint = require('gulp-scss-lint'),// For some reason doesn't work with gulp-load-$.
+    scsslint = require('gulp-scss-lint'),   // For some reason doesn't work with gulp-load-$.
+    ngHtml2Js = require('gulp-ng-html2js'), // For some reason doesn't work with gulp-load-$.
+    revHash = require('gulp-rev-hash'),     // For some reason doesn't work with gulp-load-$.
     config,
     jadeData,
     versionData;
 $.scsslint = scsslint;
+$.ngHtml2Js = ngHtml2Js;
+$.revHash = revHash;
+$.browserSync = browserSync;
 
 // Config.
 config = {
     dev: {
-        host: '0.0.0.0',
-        port: 8080,
         paths: {
             root: './app',
             tmp: './.tmp'
@@ -56,8 +60,6 @@ gulp.task('bump-minor', function () {
         .pipe(gulp.dest('./'));
 });
 
-//////////////////////////////////////// NEW
-
 // Scripts.
 gulp.task('version-read', function (cb) {
     var versionString = JSON.parse(fs.readFileSync('./package.json')).version,
@@ -90,14 +92,36 @@ gulp.task('scripts-dev', ['version-read'], function () {
         .pipe(gulp.dest(config.dev.paths.tmp + '/scripts'));
 });
 
-gulp.task('scripts-prod', ['version-read'], function () {
+gulp.task('bower-prod', function () {
+    var filterLegacy = $.filter(['**/es5-shim/**/*', '**/json3/**/*']),
+        filterOther = $.filter(['!**/es5-shim/**/*', '!**/json3/**/*']);
+    return $.bowerFiles()
+        .pipe(filterOther)
+        .pipe($.concat('vendor.js'))
+        .pipe($.uglify())
+        .pipe(gulp.dest(config.prod.paths.root + '/scripts'))
+        .pipe(filterOther.restore())
+        .pipe(filterLegacy)
+        .pipe($.concat('legacy.js'))
+        .pipe($.uglify())
+        .pipe(gulp.dest(config.prod.paths.root + '/scripts'));
+});
+
+gulp.task('scripts-prod', ['bower-prod', 'bump-prod', 'version-read'], function () {
+    var filterConfig = $.filter('**/config/default.coffee');
     return gulp.src(config.dev.paths.root + '/scripts/**/*.coffee')
+        .pipe(filterConfig)
+        .pipe($.replace('{{versionMajor}}', versionData.major))
+        .pipe($.replace('{{versionMinor}}', versionData.minor))
+        .pipe($.replace('{{versionBuild}}', versionData.build))
+        .pipe($.replace('{{versionString}}', versionData.string))
+        .pipe(filterConfig.restore())
         .pipe($.coffeelint({
             optFile: 'coffeelint.json'
         }))
         .pipe($.coffeelint.reporter())
         .pipe($.coffee())
-        .pipe($.concat('main.js'))
+        .pipe($.concat('app.js'))
         .pipe($.ngmin({dynamic: false}))
         .pipe($.uglify())
         .pipe(gulp.dest(config.prod.paths.root + '/scripts'));
@@ -139,8 +163,10 @@ gulp.task('styles-dev', function () {
 gulp.task('styles-prod', function () {
     return gulp.src(config.dev.paths.root + '/styles/**/*.scss')
         .pipe($.scsslint({
-            config: 'scss-lint.yml'
+            config: 'scss-lint.yml',
+            customReport: scssReporter
         }))
+        .pipe($.scsslint.failReporter())
         .pipe($.compass({
             config_file: 'config-prod.rb',
             css: config.prod.paths.root + '/styles',
@@ -202,29 +228,45 @@ gulp.task('jade-dev', ['jade-data-dev'], function () {
             data: jadeData
         }))
         .pipe(gulp.dest(config.dev.paths.tmp))
-        .pipe($.connect.reload());
+        .pipe($.browserSync.reload({stream: true}));
 });
 
 gulp.task('jade-prod', ['jade-data-prod'], function () {
+    var filterPartials = $.filter('**/partials/**/*.html'),
+        filterOther = $.filter('!**/partials/**/*.html');
     return gulp.src([config.dev.paths.root + '/**/*.jade', '!' + config.dev.paths.root + '/templates/**/*'])
         .pipe($.jade({
             pretty: false,
             data: jadeData
         }))
+        .pipe(filterPartials)
+        .pipe($.revHash({
+            assetsDir: config.prod.paths.root
+        }))
+        .pipe($.ngHtml2Js({
+            moduleName: 'boilerplate-html5',
+            prefix: ''
+        }))
+        .pipe($.concat('scripts/partials.js'))
+        .pipe($.uglify())
+        .pipe(gulp.dest(config.prod.paths.root))
+        .pipe(filterPartials.restore())
+        .pipe(filterOther)
+        .pipe(gulp.dest(config.prod.paths.root))
+        .pipe(filterOther.restore());
+});
+
+// Rev-hash.
+gulp.task('rev-hash', function () {
+    gulp.src(config.prod.paths.root + '/**/*.html')
+        .pipe($.revHash({
+            assetsDir: config.prod.paths.root
+        }))
         .pipe(gulp.dest(config.prod.paths.root));
 });
 
 // Connect.
-gulp.task('connect-dev', function () {
-    return $.connect.server({
-        root: [config.dev.paths.root, config.dev.paths.tmp],
-        port: config.dev.port,
-        host: config.dev.host,
-        livereload: true
-    });
-});
-
-gulp.task('connect-prod', function () {
+gulp.task('connect', function () {
     return $.connect.server({
         root: config.prod.paths.root,
         port: config.prod.port,
@@ -233,11 +275,19 @@ gulp.task('connect-prod', function () {
     });
 });
 
+// Browser-sync.
+gulp.task('browser-sync', function () {
+    return $.browserSync.init(null, {
+        server: {
+            baseDir: [config.dev.paths.root, config.dev.paths.tmp]
+        }
+    });
+});
+
 // Watch.
 gulp.task('watch', function () {
     // Scss.
     gulp.watch(config.dev.paths.root + '/styles/**/*.scss', function (file) {
-        console.log('******* FILE', file);
         return gulp.src(file.path)
             .pipe($.scsslint({
                 config: 'scss-lint.yml',
@@ -253,7 +303,7 @@ gulp.task('watch', function () {
             css: config.dev.paths.tmp + '/styles',
             sass: config.dev.paths.root + '/styles'
         }))
-        .pipe($.connect.reload())
+        .pipe($.browserSync.reload({stream: true}))
         .pipe($.notify({
             title: 'Compass',
             message: 'Styles re-built'
@@ -271,7 +321,7 @@ gulp.task('watch', function () {
         .pipe($.coffee())
         .pipe($.sourcemaps.write({sourceRoot: config.dev.paths.root + '/scripts'}))
         .pipe(gulp.dest(config.dev.paths.tmp + '/scripts'))
-        .pipe($.connect.reload())
+        .pipe($.browserSync.reload({stream: true}))
         .pipe($.notify({
             title: 'Coffee',
             message: 'Scripts re-built'
@@ -286,7 +336,7 @@ gulp.task('watch', function () {
                     data: jadeData
                 }))
                 .pipe(gulp.dest(config.dev.paths.tmp))
-                .pipe($.connect.reload())
+                .pipe($.browserSync.reload({stream: true}))
                 .pipe($.notify({
                     title: 'Jade',
                     message: 'Templates re-built'
@@ -305,30 +355,18 @@ gulp.task('watch', function () {
 });
 
 // Open.
-gulp.task('open-dev', function () {
-    return gulp.src('./gulpfile.js')
-        .pipe($.open('', {url: 'http://' + config.dev.host + ':' + config.dev.port}));
-});
-
-gulp.task('open-prod', function () {
+gulp.task('open', function () {
     return gulp.src('./gulpfile.js')
         .pipe($.open('', {url: 'http://' + config.prod.host + ':' + config.prod.port}));
 });
 
 // Proxies.
 gulp.task('dev', function (cb) {
-    $.runSequence('clean', ['scripts-dev', 'styles-dev', 'connect-dev'], 'jade-dev', ['open-dev', 'watch'], cb);
+    $.runSequence('clean', ['scripts-dev', 'styles-dev'], 'jade-dev', ['browser-sync', 'watch'], cb);
 });
 
 gulp.task('prod', function (cb) {
-    $.runSequence(
-        'clean',
-        ['coffeelint', 'scss-lint', 'coffee', 'compass', 'connect-prod'],
-        ['jade-prod', 'copy', 'concat'],
-        'ng-min',
-        ['open-prod'],
-        cb
-    );
+    $.runSequence('clean', ['scripts-prod', 'styles-prod'], ['jade-prod', 'connect'], 'rev-hash', 'open', cb);
 });
 
 gulp.task('default', ['prod']);

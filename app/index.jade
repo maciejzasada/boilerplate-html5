@@ -9,23 +9,42 @@ html
         base(href=document.baseHref)
 
         //- Styles
+        | <!-- rev-hash -->
         link(href='styles/screen.css', media='screen, projection', rel='stylesheet', type='text/css')
+        | <!-- end --><!-- rev-hash -->
         link(href='styles/print.css', media='print', rel='stylesheet', type='text/css')
+        | <!-- end -->
 
         //- Bower components
-        - each path in dependencies.bower
-            - if (dependencies.legacy.indexOf(path) == -1)
-                script(src=path, type='text/javascript')
-        | <!--[if lt IE 9]>
-        - each path in dependencies.bower
-            - if (dependencies.legacy.indexOf(path) != -1)
-                script(src=path, type='text/javascript')
-        | <![endif]-->
+        - if (env.name == 'dev')
+            - each path in dependencies.bower
+                - if (dependencies.legacy.indexOf(path) == -1)
+                    | <!-- rev-hash -->
+                    script(src=path, type='text/javascript')
+                    | <!-- end -->
+            | <!--[if lt IE 9]>
+            - each path in dependencies.bower
+                - if (dependencies.legacy.indexOf(path) != -1)
+                    | <!-- rev-hash -->
+                    script(src=path, type='text/javascript')
+                    | <!-- end -->
+            | <![endif]-->
+        - else
+            | <!-- rev-hash -->
+            script(src='scripts/vendor.js', type='text/javascript')
+            | <!-- end -->
 
     body(ng-app='boilerplate-html5')
         //- Body
         include templates/body
 
         //- Scripts
-        - each path in dependencies.scripts
-            script(src=path, type='text/javascript')
+        - if (env.name == 'dev')
+            - each path in dependencies.scripts
+                script(src=path, type='text/javascript')
+        - else
+            | <!-- rev-hash -->
+            script(src='scripts/app.js', type='text/javascript')
+            | <!-- end --><!-- rev-hash -->
+            script(src='scripts/partials.js', type='text/javascript')
+            | <!-- end -->
