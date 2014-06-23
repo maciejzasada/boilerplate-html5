@@ -8,11 +8,16 @@ module = angular.module('boilerplate-html5', [
 
 module.config ($stateProvider, $urlRouterProvider) ->
   $urlRouterProvider.otherwise '/'
-
-  console.log 'test'
   $stateProvider
     .state 'home', {
       url: '/'
       controller: 'HomeCtrl'
       templateUrl: 'partials/home.html'
     }
+
+module.run (Config, GoogleAnalytics) ->
+  console.log '[App] start'
+  Config.init()
+  GoogleAnalytics.init()
+  GoogleAnalytics.trackPageview()
+  window.generateError()

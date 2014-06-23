@@ -14,12 +14,14 @@ var gulp = require('gulp'),
     }),
     scsslint = require('gulp-scss-lint'),// For some reason doesn't work with gulp-load-$.
     config,
-    jadeData;
+    jadeData,
+    versionData;
 $.scsslint = scsslint;
 
 // Config.
 config = {
     dev: {
+        host: '0.0.0.0',
         port: 8080,
         paths: {
             root: './app',
@@ -27,6 +29,7 @@ config = {
         }
     },
     prod: {
+        host: '0.0.0.0',
         port: 8081,
         paths: {
             root: './dist'
@@ -56,8 +59,27 @@ gulp.task('bump-minor', function () {
 //////////////////////////////////////// NEW
 
 // Scripts.
-gulp.task('scripts-dev', function () {
+gulp.task('version-read', function (cb) {
+    var versionString = JSON.parse(fs.readFileSync('./package.json')).version,
+        components = versionString.split('.');
+    versionData = {
+        major: components[0],
+        minor: components[1],
+        build: components[2],
+        string: versionString
+    };
+    cb();
+});
+
+gulp.task('scripts-dev', ['version-read'], function () {
+    var filterConfig = $.filter('**/config/default.coffee');
     return gulp.src(config.dev.paths.root + '/scripts/**/*.coffee')
+        .pipe(filterConfig)
+        .pipe($.replace('{{versionMajor}}', versionData.major))
+        .pipe($.replace('{{versionMinor}}', versionData.minor))
+        .pipe($.replace('{{versionBuild}}', versionData.build))
+        .pipe($.replace('{{versionString}}', versionData.string))
+        .pipe(filterConfig.restore())
         .pipe($.coffeelint({
             optFile: 'coffeelint.json'
         }))
@@ -68,7 +90,7 @@ gulp.task('scripts-dev', function () {
         .pipe(gulp.dest(config.dev.paths.tmp + '/scripts'));
 });
 
-gulp.task('scripts-prod', function () {
+gulp.task('scripts-prod', ['version-read'], function () {
     return gulp.src(config.dev.paths.root + '/scripts/**/*.coffee')
         .pipe($.coffeelint({
             optFile: 'coffeelint.json'
@@ -197,7 +219,7 @@ gulp.task('connect-dev', function () {
     return $.connect.server({
         root: [config.dev.paths.root, config.dev.paths.tmp],
         port: config.dev.port,
-        host: '0.0.0.0',
+        host: config.dev.host,
         livereload: true
     });
 });
@@ -206,7 +228,7 @@ gulp.task('connect-prod', function () {
     return $.connect.server({
         root: config.prod.paths.root,
         port: config.prod.port,
-        host: '0.0.0.0',
+        host: config.prod.host,
         livereload: false
     });
 });
@@ -285,12 +307,12 @@ gulp.task('watch', function () {
 // Open.
 gulp.task('open-dev', function () {
     return gulp.src('./gulpfile.js')
-        .pipe($.open('', {url: 'http://localhost:' + config.dev.port}));
+        .pipe($.open('', {url: 'http://' + config.dev.host + ':' + config.dev.port}));
 });
 
 gulp.task('open-prod', function () {
     return gulp.src('./gulpfile.js')
-        .pipe($.open('', {url: 'http://localhost:' + config.prod.port}));
+        .pipe($.open('', {url: 'http://' + config.prod.host + ':' + config.prod.port}));
 });
 
 // Proxies.
