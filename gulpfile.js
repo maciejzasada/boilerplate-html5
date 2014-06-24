@@ -15,13 +15,13 @@ var gulp = require('gulp'),
     }),
     scsslint = require('gulp-scss-lint'),   // For some reason doesn't work with gulp-load-$.
     ngHtml2Js = require('gulp-ng-html2js'), // For some reason doesn't work with gulp-load-$.
-    revHash = require('gulp-rev-hash'),     // For some reason doesn't work with gulp-load-$.
+    revReplace = require('gulp-rev-replace'),
     config,
     jadeData,
     versionData;
 $.scsslint = scsslint;
 $.ngHtml2Js = ngHtml2Js;
-$.revHash = revHash;
+$.revReplace = revReplace;
 $.browserSync = browserSync;
 
 // Config.
@@ -45,6 +45,12 @@ config = {
 gulp.task('clean', function () {
     return gulp.src([config.dev.paths.tmp + '/**/*', config.prod.paths.root + '/**/*'], {read: false})
         .pipe($.clean());
+});
+
+// Bower.
+gulp.task('bower', function () {
+    return $.bower()
+        .pipe(gulp.dest(config.dev.paths.root + '/bower_components'));
 });
 
 // Bump.
@@ -236,13 +242,10 @@ gulp.task('jade-prod', ['jade-data-prod'], function () {
         filterOther = $.filter('!**/partials/**/*.html');
     return gulp.src([config.dev.paths.root + '/**/*.jade', '!' + config.dev.paths.root + '/templates/**/*'])
         .pipe($.jade({
-            pretty: false,
+            pretty: true,
             data: jadeData
         }))
         .pipe(filterPartials)
-        .pipe($.revHash({
-            assetsDir: config.prod.paths.root
-        }))
         .pipe($.ngHtml2Js({
             moduleName: 'boilerplate-html5',
             prefix: ''
@@ -256,12 +259,18 @@ gulp.task('jade-prod', ['jade-data-prod'], function () {
         .pipe(filterOther.restore());
 });
 
-// Rev-hash.
-gulp.task('rev-hash', function () {
-    gulp.src(config.prod.paths.root + '/**/*.html')
-        .pipe($.revHash({
-            assetsDir: config.prod.paths.root
-        }))
+// Rev.
+gulp.task('rev', function () {
+    var filterAll = $.filter(['**/*.css', '**/*.js']);
+    return gulp.src(config.prod.paths.root + '/**/*.html')
+        .pipe($.useref.assets())
+        .pipe(filterAll)
+        .pipe($.clean())
+        .pipe(filterAll.restore())
+        .pipe($.rev())
+        .pipe($.useref.restore())
+        .pipe($.useref())
+        .pipe($.revReplace())
         .pipe(gulp.dest(config.prod.paths.root));
 });
 
@@ -362,11 +371,11 @@ gulp.task('open', function () {
 
 // Proxies.
 gulp.task('dev', function (cb) {
-    $.runSequence('clean', ['scripts-dev', 'styles-dev'], 'jade-dev', ['browser-sync', 'watch'], cb);
+    $.runSequence(['clean', 'bower'], ['scripts-dev', 'styles-dev'], 'jade-dev', ['browser-sync', 'watch'], cb);
 });
 
 gulp.task('prod', function (cb) {
-    $.runSequence('clean', ['scripts-prod', 'styles-prod'], ['jade-prod', 'connect'], 'rev-hash', 'open', cb);
+    $.runSequence(['clean', 'bower'], ['scripts-prod', 'styles-prod'], ['jade-prod', 'connect'], 'rev', 'open', cb);
 });
 
 gulp.task('default', ['prod']);

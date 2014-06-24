@@ -1,6 +1,6 @@
 {
   "name": "boilerplate-html5",
-  "version": "0.1.58",
+  "version": "0.1.74",
   "homepage": "https://github.com/maciejzasada/boilerplate-html5",
   "authors": [
     "Maciej Zasada <hello@maciejzasada.com>"
@@ -21,13 +21,13 @@
   ],
   "dependencies": {
     "angular": "~1.2.18",
-    "polymer": "Polymer/polymer#~0.3.3",
     "es5-shim": "~3.4.0",
     "json3": "~3.3.1",
     "angular-ui-router": "~0.2.10",
     "angular-cookies": "~1.2.18",
     "angular-animate": "~1.2.18",
     "angular-translate": "~2.2.0",
-    "angular-resource": "~1.2.18"
+    "angular-resource": "~1.2.18",
+    "polymer": "~0.2.3"
   }
 }

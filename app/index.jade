@@ -1,3 +1,11 @@
+mixin rev(type, path)
+    | <!-- -->
+    | <!-- build:#{type} #{path} -->
+
+mixin rev-end()
+    | <!-- -->
+    | <!-- endbuild -->
+
 doctype html
 html
     head
@@ -9,30 +17,27 @@ html
         base(href=document.baseHref)
 
         //- Styles
-        | <!-- rev-hash -->
-        link(href='styles/screen.css', media='screen, projection', rel='stylesheet', type='text/css')
-        | <!-- end --><!-- rev-hash -->
+        +rev('css', 'styles/screen.css')
+        link(type='text/css', rel='stylesheet', media='screen, projection', href='styles/screen.css')
+        +rev-end()
+        +rev('css', 'styles/print.css')
         link(href='styles/print.css', media='print', rel='stylesheet', type='text/css')
-        | <!-- end -->
+        +rev-end()
 
         //- Bower components
         - if (env.name == 'dev')
             - each path in dependencies.bower
                 - if (dependencies.legacy.indexOf(path) == -1)
-                    | <!-- rev-hash -->
                     script(src=path, type='text/javascript')
-                    | <!-- end -->
             | <!--[if lt IE 9]>
             - each path in dependencies.bower
                 - if (dependencies.legacy.indexOf(path) != -1)
-                    | <!-- rev-hash -->
                     script(src=path, type='text/javascript')
-                    | <!-- end -->
             | <![endif]-->
         - else
-            | <!-- rev-hash -->
+            +rev('js', 'scripts/vendor.js')
             script(src='scripts/vendor.js', type='text/javascript')
-            | <!-- end -->
+            +rev-end()
 
     body(ng-app='boilerplate-html5')
         //- Body
@@ -43,8 +48,9 @@ html
             - each path in dependencies.scripts
                 script(src=path, type='text/javascript')
         - else
-            | <!-- rev-hash -->
+            +rev('js', 'scripts/app.js')
             script(src='scripts/app.js', type='text/javascript')
-            | <!-- end --><!-- rev-hash -->
+            +rev-end()
+            +rev('js', 'scripts/partials.js')
             script(src='scripts/partials.js', type='text/javascript')
-            | <!-- end -->
+            +rev-end()
