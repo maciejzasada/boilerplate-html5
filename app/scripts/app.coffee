@@ -11,13 +11,5 @@ module.config ($stateProvider, $urlRouterProvider) ->
   $stateProvider
     .state 'home', {
       url: '/'
-      controller: 'HomeCtrl'
       templateUrl: 'partials/home.html'
     }
-
-module.run (Config, GoogleAnalytics) ->
-  console.log '[App] start'
-  Config.init()
-  GoogleAnalytics.init()
-  GoogleAnalytics.trackPageview()
-#  window.generateError()

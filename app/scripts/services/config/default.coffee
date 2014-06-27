@@ -4,7 +4,8 @@ angular.module('App')
   @env = undefined
 
   @init = () ->
-    console.log '[Config] init'
+    console.log '[Config] init', this
+    return
 
   @version =
     major: '{{versionMajor}}'

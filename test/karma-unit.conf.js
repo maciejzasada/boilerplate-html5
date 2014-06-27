@@ -7,9 +7,6 @@ module.exports = function(config) {
         // Extra testing code.
         'app/bower_components/angular-mocks/angular-mocks.js',
 
-        // Mocha stuff.
-        'test/mocha.conf.js',
-
         // Test files.
         './.tmp/.test/unit/**/*.js'
     ]);

@@ -1,7 +1,7 @@
 module.exports = function() {
     return {
         basePath: '../',
-        frameworks: ['mocha'],
+        frameworks: ['jasmine'],
         reporters: ['coverage', 'progress'],
         browsers: ['Chrome'],   //, 'Firefox', 'Safari'],  // 'IE'],
         autoWatch: false,
@@ -27,12 +27,7 @@ module.exports = function() {
             'app/bower_components/angular-ui-router/release/angular-ui-router.min.js',
 
             // App code.
-            '.tmp/scripts/**/*.js',
-
-            // Additional test code.
-            'node_modules/chai/chai.js',
-            'test/lib/chai-should.js',
-            'test/lib/chai-expect.js'
+            '.tmp/scripts/**/*.js'
         ]
     }
 };
