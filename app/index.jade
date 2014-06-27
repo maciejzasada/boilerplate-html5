@@ -27,11 +27,11 @@ html
         //- Bower components
         - if (env.name == 'dev')
             - each path in dependencies.bower
-                - if (dependencies.legacy.indexOf(path) == -1)
+                - if (dependencies.skip.indexOf(path) == -1 && dependencies.legacy.indexOf(path) == -1)
                     script(src=path, type='text/javascript')
             | <!--[if lt IE 9]>
             - each path in dependencies.bower
-                - if (dependencies.legacy.indexOf(path) != -1)
+                - if (dependencies.skip.indexOf(path) == -1 && dependencies.legacy.indexOf(path) != -1)
                     script(src=path, type='text/javascript')
             | <![endif]-->
         - else
@@ -39,7 +39,7 @@ html
             script(src='scripts/vendor.js', type='text/javascript')
             +rev-end()
 
-    body(ng-app='boilerplate-html5')
+    body(ng-app='App')
         //- Body
         include templates/body
 

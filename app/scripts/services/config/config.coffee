@@ -1,4 +1,4 @@
-angular.module('boilerplate-html5')
+angular.module('App')
   .factory 'Config', (ConfigDefault, ConfigLocal, ConfigDev, ConfigStage, ConfigProd) ->
     config = ConfigProd
     switch window.location.hostname

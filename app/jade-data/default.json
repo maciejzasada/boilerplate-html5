@@ -8,6 +8,9 @@
         "legacy": [
             "bower_components/es5-shim/es5-shim.js",
             "bower_components/json3/lib/json3.min.js"
+        ],
+        "skip": [
+            "bower_components/angular-mocks/angular-mocks.js"
         ]
     }
 }

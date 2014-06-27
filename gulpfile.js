@@ -43,7 +43,7 @@ config = {
 
 // Clean.
 gulp.task('clean', function () {
-    return gulp.src([config.dev.paths.tmp + '/**/*', config.prod.paths.root + '/**/*'], {read: false})
+    return gulp.src([config.dev.paths.tmp + '/**/*', config.prod.paths.root + '/**/*', config.dev.paths.tmp + '/.test/**/*'])
         .pipe($.clean());
 });
 
@@ -272,6 +272,31 @@ gulp.task('rev', function () {
         .pipe($.useref())
         .pipe($.revReplace())
         .pipe(gulp.dest(config.prod.paths.root));
+});
+
+// Test.
+gulp.task('compile-tests', function () {
+    return gulp.src('test/**/*.coffee')
+        .pipe($.coffeelint({
+            optFile: 'coffeelint.json'
+        }))
+        .pipe($.coffeelint.reporter())
+        .pipe($.coffee())
+        .pipe(gulp.dest(config.dev.paths.tmp + '/.test'));
+});
+
+gulp.task('test-unit', function (cb) {
+    $.runSequence('clean', ['scripts-dev', 'compile-tests'], function () {
+        gulp.src('./foobar')
+            .pipe($.karma({
+                configFile: 'test/karma-unit.conf.js',
+                action: 'run'
+            }))
+            .on('error', function(err) {
+                throw err;
+            })
+            .on('end', cb);
+    });
 });
 
 // Connect.

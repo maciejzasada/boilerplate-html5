@@ -1,4 +1,4 @@
-angular.module('boilerplate-html5')
+angular.module('App')
 .service 'GoogleAnalytics', (Config) ->
 
   @init = () ->

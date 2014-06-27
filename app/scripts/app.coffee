@@ -1,4 +1,4 @@
-module = angular.module('boilerplate-html5', [
+module = angular.module('App', [
   'ngCookies',
   'ngResource',
   'ngAnimate',
